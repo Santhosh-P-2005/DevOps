@@ -1,6 +1,6 @@
 pipeline {
     agent any
-
+    tools { maven "maven" }
     stages {
         stage('SCM') {
             steps {
@@ -8,25 +8,34 @@ pipeline {
             }
         }
         stage('Build') {
-            steps{
-                sh 'mvn clean'
-		sh 'mvn install'
+            steps {
+                sh 'mvn clean package'
             }
         }
-        stage('build to images') {
+        stage('Build Docker Image') {
             steps {
-            script{
-                sh "docker build -t santhosh9405/new-image ."
-            }
+                script {
+                    sh 'docker build -t santhosh9405/webapp1 .'
+                }
             }
         }
-        stage('docker push hub') {
+        stage('Push to Docker Hub') {
             steps {
-            script{
-               withDockerRegistry(credentialsId: 'cred-3', url: 'https://index.docker.io/v1/') {
-                sh 'docker push santhosh9405/new-image'
+                script {
+                    withDockerRegistry(credentialsId: 'docker_cred', toolName: 'docker', url: 'https://index.docker.io/v1/') {
+                        sh 'docker push santhosh9405/webapp1'
+                    }
+                }
             }
-            }
+        }
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    
+                    withKubeConfig(caCertificate: '', clusterName: 'minikube', contextName: 'minikube', credentialsId: 'new_kub_config', namespace: '', restrictKubeConfigAccess: false, serverUrl: 'https://192.168.49.2:8443') {
+         sh 'kubectl apply -f deployment.yml --validate=false'
+}
+                }
             }
         }
     }
